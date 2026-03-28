@@ -24,7 +24,7 @@ fn build_1sec_array() -> [f32; SAMPLE_RATE as usize] {
 }
 
 #[test]
-fn main() {
+fn test_mfcc_similarity() {
     let array = build_1sec_array();
     let mfcc = Mfcc::new();
     let mut mfcc_matrix = [[0f32; NUM_MFCC]; NUM_FRAMES];

@@ -2,3 +2,4 @@
 
 pub mod mfcc;
 pub mod similarities;
+pub mod dtw;
