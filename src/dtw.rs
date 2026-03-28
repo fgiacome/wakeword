@@ -1,7 +1,7 @@
 use crate::similarities::cosine_similarity;
 
 fn distance<const F: usize>(a: &[f32; F], b: &[f32; F]) -> f32 {
-    1.0 - cosine_similarity(a, b)
+    (1.0 - cosine_similarity(a, b))/2.
 }
 
 pub fn dtw<const N: usize, const M: usize, const F: usize>(
