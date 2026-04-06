@@ -1,15 +1,21 @@
 use std::env;
+use wakew::mfcc::Mfcc;
+use wakew::mfcc::FRAME_SIZE;
+use wakew::mfcc::NUM_MFCC;
+use wakew::mfcc::SHIFT_WIDTH;
+
+const SIZE: usize = 24000;
+const NUM_FRAMES: usize = (SIZE - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: dump_wav <file.wav> [array_name] [size]");
+        eprintln!("Usage: dump_wav <file.wav> [array_name]");
         std::process::exit(1);
     }
 
     let path = &args[1];
     let array_name = args.get(2).map(|s| s.as_str()).unwrap_or("REFERENCE");
-    let target_size: Option<usize> = args.get(3).and_then(|s| s.parse().ok());
 
     let mut reader = hound::WavReader::open(path).unwrap();
     let spec = reader.spec();
@@ -21,16 +27,24 @@ fn main() {
         .map(|s| s.unwrap() as f32 / 32768.0)
         .collect();
 
-    let size = target_size.unwrap_or(samples.len());
-    let mut floats = vec![0f32; size];
-    let copy_len = samples.len().min(size);
+    // Allocate buffer and pad / truncate if necessary
+    let mut floats = [0f32; SIZE];
+    let copy_len = samples.len().min(SIZE);
     floats[..copy_len].copy_from_slice(&samples[..copy_len]);
 
-    println!("// {} — {}Hz, {} samples", path, spec.sample_rate, size);
-    println!("pub const {}: [f32; {}] = [", array_name, size);
-    for (i, v) in floats.iter().enumerate() {
-        let end = if i < size - 1 { "," } else { "" };
-        println!("    {:.8e}{}", v, end);
+    // Calculate MFCCs
+    let mfcc = Mfcc::new();
+    let mfcc_result: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&floats);
+
+    // Print rust tensor
+    println!("// {} — {}Hz, {} samples", path, spec.sample_rate, SIZE);
+    println!("pub const {}: [[f32; {}]; {}] = [", array_name, NUM_MFCC, NUM_FRAMES);
+    for v in mfcc_result.iter() {
+        print!("    [ ");
+        for c in v.iter() {
+            print!("{:.8e}, ", {c})
+        }
+        println!("],");
     }
     println!("];");
 }

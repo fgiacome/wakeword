@@ -1,44 +1,33 @@
-use wakeword::mfcc::{Mfcc, FRAME_SIZE, SAMPLE_RATE, NUM_MFCC};
-use wakeword::dtw::dtw;
+use wakew::mfcc::{ FRAME_SIZE, Mfcc, NUM_MFCC, SAMPLE_RATE, SHIFT_WIDTH};
+use wakew::dtw::dtw;
 
-const WINDOW_SIZE: usize = 16800;
-const SHIFT_WIDTH: usize = 100;
-const NUM_FRAMES: usize = (WINDOW_SIZE - FRAME_SIZE) / SHIFT_WIDTH + 1;
+const SIZE: usize = 24000;
+const NUM_FRAMES: usize = (SIZE - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
 
-fn load_wav(path: &str) -> [f32; WINDOW_SIZE] {
+fn load_wav(path: &str) -> [f32; SIZE] {
     let mut reader = hound::WavReader::open(path).unwrap();
     let spec = reader.spec();
     assert_eq!(spec.sample_rate, SAMPLE_RATE as u32);
 
-    let mut array = [0f32; WINDOW_SIZE];
-    for (i, sample) in reader.samples::<i16>().enumerate().take(WINDOW_SIZE) {
+    let mut array = [0f32; SIZE];
+    for (i, sample) in reader.samples::<i16>().enumerate().take(SIZE) {
         array[i] = sample.unwrap() as f32 / 32768.0;
     }
     array
 }
 
-fn compute_mfcc_matrix(array: &[f32; WINDOW_SIZE]) -> [[f32; NUM_MFCC]; NUM_FRAMES] {
-    let mfcc = Mfcc::new();
-    let mut matrix = [[0f32; NUM_MFCC]; NUM_FRAMES];
-    for i in 0..NUM_FRAMES {
-        let frame = array[SHIFT_WIDTH*i..(SHIFT_WIDTH*i+FRAME_SIZE)].try_into().unwrap();
-        let mfcc_frame = mfcc.mfcc(frame);
-        mfcc_frame.iter().enumerate().for_each(|(j, v)| matrix[i][j] = *v);
-    }
-    matrix
-}
-
 #[test]
 fn dtw_wav() {
-    let reference = load_wav("assets/reference.wav");
-    let sample_detect = load_wav("assets/sample_detect.wav");
-    let sample_detect_b = load_wav("assets/sample_detect_b.wav");
-    let sample_none = load_wav("assets/sample_none.wav");
+    let mfcc = Mfcc::new();
+    let reference = load_wav("../assets/reference.wav");
+    let sample_detect = load_wav("../assets/sample_detect.wav");
+    let sample_detect_b = load_wav("../assets/sample_detect_b.wav");
+    let sample_none = load_wav("../assets/sample_none.wav");
 
-    let reference_mfcc = compute_mfcc_matrix(&reference);
-    let detect_mfcc = compute_mfcc_matrix(&sample_detect);
-    let detect_b_mfcc = compute_mfcc_matrix(&sample_detect_b);
-    let none_mfcc = compute_mfcc_matrix(&sample_none);
+    let reference_mfcc: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&reference);
+    let detect_mfcc: [[f32; _]; NUM_FRAMES]= mfcc.seq_mfcc(&sample_detect);
+    let detect_b_mfcc: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&sample_detect_b);
+    let none_mfcc: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&sample_none);
 
     let score_detect = dtw(&reference_mfcc, &detect_mfcc);
     let score_detect_b = dtw(&reference_mfcc, &detect_b_mfcc);

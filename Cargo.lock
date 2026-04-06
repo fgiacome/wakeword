@@ -1025,7 +1025,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wakeword"
+name = "wakew"
 version = "0.1.0"
 dependencies = [
  "hound",
