@@ -1,0 +1,11 @@
+[package]
+name = "wakeword"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libm = "0.2.16"
+microfft = "0.6.0"
+
+[dev-dependencies]
+hound = "3.5"
