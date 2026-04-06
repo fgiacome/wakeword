@@ -1022,12 +1022,14 @@ dependencies = [
  "embassy-time",
  "panic-probe",
  "static_cell",
+ "wakew",
 ]
 
 [[package]]
 name = "wakew"
 version = "0.1.0"
 dependencies = [
+ "embassy-futures",
  "hound",
  "libm",
  "microfft",

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+embassy-futures = "0.1.2"
 libm = "0.2.16"
 microfft = "0.6.0"
 

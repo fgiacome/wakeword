@@ -1,11 +1,11 @@
 use libm::sqrtf;
+use embassy_futures::yield_now;
 
 fn cosine_similarity<const S: usize>(a: &[f32; S], b: &[f32; S]) -> f32 {
-    let norm_a = sqrtf(a.iter().map(|v| v * v).sum::<f32>());
-    let norm_b = sqrtf(b.iter().map(|v| v * v).sum::<f32>());
-    a.iter()
-        .zip(b)
-        .map(|(a, b)| a * b)
+    let norm_a = sqrtf(a.iter().map(|v| v * v).sum::<f32>()) + 1e-5;
+    let norm_b = sqrtf(b.iter().map(|v| v * v).sum::<f32>()) + 1e-5;
+    a.iter().enumerate()
+        .map(|(i, v)| *v * b[i])
         .map(|v| v / norm_a / norm_b)
         .sum::<f32>()
 }
@@ -15,7 +15,11 @@ fn distance<const F: usize>(a: &[f32; F], b: &[f32; F]) -> f32 {
     (1.0 - cosine_similarity(a, b))/2.
 }
 
-pub fn dtw<const N: usize, const M: usize, const F: usize>(
+fn _distance<const F: usize>(a: &[f32; F], b: &[f32; F]) -> f32 {
+    sqrtf(a.iter().zip(b).map(|(a,b)| a-b).map(|v| v*v).sum::<f32>())
+}
+
+pub async fn dtw<const N: usize, const M: usize, const F: usize>(
     a: &[[f32; F]; N],
     b: &[[f32; F]; M],
 ) -> f32 {
@@ -27,6 +31,8 @@ pub fn dtw<const N: usize, const M: usize, const F: usize>(
         prev[j] = prev[j-1] + distance(&a[0], &b[j]);
     }
 
+    yield_now().await;
+
     for i in 1..N {
         curr[0] = prev[0] + distance(&a[i], &b[0]);
         for j in 1..M {
@@ -35,6 +41,7 @@ pub fn dtw<const N: usize, const M: usize, const F: usize>(
         }
         core::mem::swap(&mut prev, &mut curr);
         curr = [f32::INFINITY; M];
+        yield_now().await;
     }
 
     prev[M-1]
