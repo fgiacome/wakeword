@@ -31,6 +31,10 @@ const FFT_SIZE: usize = FFT_RETURN_SIZE * 2;
 /// Input is `FFT_RETURN_SIZE` FFT coefficients and output is one scalar for
 /// each filter
 const NUM_MEL_FILTERS: usize = 26;
+/// Number of DCT coefficients to calculate
+/// 
+/// This is used to generate the DCT matrix
+const NUM_DCT_COEFFS: usize = 13;
 
 /// Hz to Mel
 fn to_mel(f: f32) -> f32 {
@@ -66,10 +70,10 @@ fn get_mel_filters() -> [[f32; FFT_RETURN_SIZE]; NUM_MEL_FILTERS] {
     filters
 }
 
-fn get_dct_matrix() -> [[f32; NUM_MEL_FILTERS]; NUM_MFCC] {
+fn get_dct_matrix() -> [[f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS] {
     // Memory: 12*26*4 = 1.2KB
-    let mut dct_matrix = [[0f32; NUM_MEL_FILTERS]; NUM_MFCC];
-    for i in 0..NUM_MFCC {
+    let mut dct_matrix = [[0f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS];
+    for i in 0..NUM_DCT_COEFFS {
         for j in 0..NUM_MEL_FILTERS {
             dct_matrix[i][j] =
                 cosf(core::f32::consts::PI * (j as f32 + 0.5) * i as f32 / NUM_MFCC as f32);
@@ -80,7 +84,7 @@ fn get_dct_matrix() -> [[f32; NUM_MEL_FILTERS]; NUM_MFCC] {
 
 pub struct Mfcc {
     mel_filters: [[f32; FFT_RETURN_SIZE]; NUM_MEL_FILTERS],
-    dct_matrix: [[f32; NUM_MEL_FILTERS]; NUM_MFCC],
+    dct_matrix: [[f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS],
 }
 
 impl Mfcc {
@@ -140,11 +144,11 @@ fn log_mel_energies(
 
 fn dct(
     log_mel_energies: &[f32; NUM_MEL_FILTERS],
-    dct_matrix: &[[f32; NUM_MEL_FILTERS]; NUM_MFCC],
+    dct_matrix: &[[f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS],
 ) -> [f32; NUM_MFCC] {
     core::array::from_fn(|i| {
         (0..NUM_MEL_FILTERS)
-            .map(|j| dct_matrix[i][j] * log_mel_energies[j])
+            .map(|j| dct_matrix[i+1][j] * log_mel_energies[j])
             .sum()
     })
 }

@@ -21,9 +21,9 @@ bind_interrupts!(struct Irqs {
 
 include!("../reference.rs");
 
-const WINDOW_SIZE: usize = (24000 - FRAME_SIZE + SHIFT_WIDTH -1) / SHIFT_WIDTH;
+const WINDOW_SIZE: usize = (19000 - FRAME_SIZE + SHIFT_WIDTH -1) / SHIFT_WIDTH;
 
-static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], 180>> = StaticCell::new();
+static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], 28>> = StaticCell::new();
 
 struct MfccRingBuffer<const B: usize, const S: usize, T> {
     b: [T; B],
@@ -69,8 +69,8 @@ impl<const B: usize, const S: usize, T: Copy> MfccRingBuffer<B, S, T> {
 }
 
 #[embassy_executor::task]
-async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], 180>, mut pin: Output<'static>) {
-    let mut buf = MfccRingBuffer::<WINDOW_SIZE, 180, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
+async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], 28>, mut pin: Output<'static>) {
+    let mut buf = MfccRingBuffer::<WINDOW_SIZE, 28, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
     loop {
         let data = receiver.receive().await;
         buf.update(&[data]);
@@ -80,7 +80,7 @@ async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], 18
             let elapsed = start.elapsed().as_millis();
             info!("Duration took {} ms", elapsed);
             info!("Distance: {}", distance);
-            if distance < 0.04 {
+            if distance < 18.7 {
                 pin.toggle();
             }
         }
@@ -97,7 +97,7 @@ async fn main(s: Spawner) {
     let mut config = Config::default();
     config.resolution = saadc::Resolution::_12BIT;
     let mut channel_config = ChannelConfig::single_ended(p.P0_05);
-    channel_config.gain = Gain::GAIN4;
+    channel_config.gain = Gain::GAIN1;
     let mut saadc = Saadc::new(p.SAADC, Irqs, config, [channel_config]);
     let _col1 = Output::new(p.P0_28, Level::Low, OutputDrive::Standard);
     let row1 = Output::new(p.P0_21, Level::Low, OutputDrive::Standard);

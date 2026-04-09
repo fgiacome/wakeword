@@ -4,7 +4,7 @@ use wakew::mfcc::FRAME_SIZE;
 use wakew::mfcc::NUM_MFCC;
 use wakew::mfcc::SHIFT_WIDTH;
 
-const SIZE: usize = 24000;
+const SIZE: usize = 18000;
 const NUM_FRAMES: usize = (SIZE - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
 
 fn main() {
