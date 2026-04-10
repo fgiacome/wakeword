@@ -1,10 +1,19 @@
 [package]
 edition = "2024"
-name = "wake_word"
+name = "embedded_wakew"
 version = "0.1.0"
 
 [[bin]]
 name="wake_word"
+test=false
+bench=false
+
+[[bin]]
+name="record_audio"
+test=false
+bench=false
+
+[lib]
 test=false
 bench=false
 
@@ -18,5 +27,7 @@ embassy-nrf = { version = "0.10.0", features = ["defmt", "nrf52833", "time", "ti
 embassy-sync = { version = "0.8.0", features = ["defmt"] }
 embassy-time = { version = "0.5.1", features = ["defmt", "defmt-timestamp-uptime"] }
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
+rtt-target = { version = "0.6.2", features = ["defmt"] }
 static_cell = "2.1.1"
+thiserror = { version = "2.0.18", default-features = false }
 wakew = { version = "0.1.0", path = "../wakew" }
