@@ -1,10 +1,11 @@
 use std::env;
+use std::io::{Write, stderr};
 use wakew::mfcc::Mfcc;
 use wakew::mfcc::FRAME_SIZE;
 use wakew::mfcc::NUM_MFCC;
 use wakew::mfcc::SHIFT_WIDTH;
 
-const SIZE: usize = 18000;
+const SIZE: usize = 15000;
 const NUM_FRAMES: usize = (SIZE - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
 
 fn main() {
@@ -30,6 +31,12 @@ fn main() {
     // Allocate buffer and pad / truncate if necessary
     let mut floats = [0f32; SIZE];
     let copy_len = samples.len().min(SIZE);
+    if SIZE < samples.len() {
+        let _ = writeln!(stderr(), "Truncating {} samples", samples.len() - SIZE);
+    }
+    if SIZE >= samples.len() {
+        let _ = writeln!(stderr(), "Padding {} samples", SIZE - samples.len());
+    }
     floats[..copy_len].copy_from_slice(&samples[..copy_len]);
 
     // Calculate MFCCs
