@@ -1,8 +1,8 @@
 use std::env;
 use std::io::{Write, stderr};
-use wakew::mfcc::Mfcc;
+use wakew::mfcc::FEATURE_SIZE;
 use wakew::mfcc::FRAME_SIZE;
-use wakew::mfcc::NUM_MFCC;
+use wakew::mfcc::Mfcc;
 use wakew::mfcc::SHIFT_WIDTH;
 
 const SIZE: usize = 15000;
@@ -45,7 +45,7 @@ fn main() {
 
     // Print rust tensor
     println!("// {} — {}Hz, {} samples", path, spec.sample_rate, SIZE);
-    println!("pub const {}: [[f32; {}]; {}] = [", array_name, NUM_MFCC, NUM_FRAMES);
+    println!("pub const {}: [[f32; {}]; {}] = [", array_name, FEATURE_SIZE, NUM_FRAMES);
     for v in mfcc_result.iter() {
         print!("    [ ");
         for c in v.iter() {

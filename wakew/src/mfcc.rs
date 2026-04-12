@@ -8,6 +8,7 @@
 //! 1. DCT is applied to `NUM_MEL_FILTERS` and the first `NUM_MFCC` coefficients
 //! are kept; these are MFCCs for the current frame.
 
+use embassy_futures::yield_now;
 use libm::{cosf, expf, logf};
 use microfft::{Complex32, real::rfft_512};
 
@@ -19,6 +20,8 @@ pub const SAMPLE_RATE: f32 = 16_000.;
 pub const FRAME_SIZE: usize = 400;
 /// Number of MFCCs for each `FRAME_SIZE` samples
 pub const NUM_MFCC: usize = 12;
+/// Feature vector size per frame: base MFCCs + delta + delta-delta
+pub const FEATURE_SIZE: usize = NUM_MFCC * 3;
 /// How many samples to shift for each MFCC calculation
 pub const SHIFT_WIDTH: usize = 100;
 
@@ -27,14 +30,14 @@ const FFT_RETURN_SIZE: usize = 256;
 /// Point size of FFT
 const FFT_SIZE: usize = FFT_RETURN_SIZE * 2;
 /// Number of Mel filters
-/// 
+///
 /// Input is `FFT_RETURN_SIZE` FFT coefficients and output is one scalar for
 /// each filter
 const NUM_MEL_FILTERS: usize = 26;
-/// Number of DCT coefficients to calculate
-/// 
-/// This is used to generate the DCT matrix
-const NUM_DCT_COEFFS: usize = 13;
+/// Half-window size for delta computation (uses frames i-N..=i+N)
+const DELTA_N: usize = 2;
+/// Denominator for delta computation: 2 * sum(n^2 for n in 1..=DELTA_N)
+const DELTA_DENOM: f32 = 2.0 * (1 + 4) as f32; // N=2: 2*(1+4)=10
 
 /// Hz to Mel
 fn to_mel(f: f32) -> f32 {
@@ -70,21 +73,21 @@ fn get_mel_filters() -> [[f32; FFT_RETURN_SIZE]; NUM_MEL_FILTERS] {
     filters
 }
 
-fn get_dct_matrix() -> [[f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS] {
+fn get_dct_matrix() -> [[f32; NUM_MEL_FILTERS]; NUM_MFCC] {
     // Memory: 12*26*4 = 1.2KB
-    let mut dct_matrix = [[0f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS];
-    for i in 0..NUM_DCT_COEFFS {
-        for j in 0..NUM_MEL_FILTERS {
-            dct_matrix[i][j] =
-                cosf(core::f32::consts::PI * (j as f32 + 0.5) * i as f32 / NUM_MFCC as f32);
-        }
-    }
-    dct_matrix
+    // Coefficients 1..=NUM_MFCC (C0 is omitted: it is proportional to log frame
+    // energy and carries no phonetic information beyond what cosine similarity
+    // already discards).
+    core::array::from_fn(|i| {
+        core::array::from_fn(|j| {
+            cosf(core::f32::consts::PI * (j as f32 + 0.5) * (i + 1) as f32 / NUM_MEL_FILTERS as f32)
+        })
+    })
 }
 
 pub struct Mfcc {
     mel_filters: [[f32; FFT_RETURN_SIZE]; NUM_MEL_FILTERS],
-    dct_matrix: [[f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS],
+    dct_matrix: [[f32; NUM_MEL_FILTERS]; NUM_MFCC],
 }
 
 impl Mfcc {
@@ -97,22 +100,29 @@ impl Mfcc {
         }
     }
     pub fn mfcc(&self, frame: &[f32; FRAME_SIZE]) -> [f32; NUM_MFCC] {
-        // TODO will this deallocate these intermediate buffers?
         let post_fft = fft(frame);
         let post_periodogram = periodogram(&post_fft);
         let post_log_mel_energies = log_mel_energies(&post_periodogram, &self.mel_filters);
         dct(&post_log_mel_energies, &self.dct_matrix)
     }
 
-    pub fn seq_mfcc<const S: usize, const N: usize>(&self, seq: &[f32; S]) -> [[f32; NUM_MFCC]; N] {
-        // We will pad seq to match an even number of frames...
+    pub fn seq_mfcc<const S: usize, const N: usize>(&self, seq: &[f32; S]) -> [[f32; FEATURE_SIZE]; N] {
         assert_eq!((S - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH, N);
-        core::array::from_fn(|i| {
+        let base: [[f32; NUM_MFCC]; N] = core::array::from_fn(|i| {
             let mut frame = [0f32; FRAME_SIZE];
             let chunk = &seq[i * SHIFT_WIDTH..];
             let len = chunk.len().min(FRAME_SIZE);
             frame[..len].copy_from_slice(&chunk[..len]);
             self.mfcc(&frame)
+        });
+        let delta = compute_deltas(&base);
+        let delta2 = compute_deltas(&delta);
+        core::array::from_fn(|i| {
+            let mut feat = [0f32; FEATURE_SIZE];
+            feat[..NUM_MFCC].copy_from_slice(&base[i]);
+            feat[NUM_MFCC..NUM_MFCC * 2].copy_from_slice(&delta[i]);
+            feat[NUM_MFCC * 2..].copy_from_slice(&delta2[i]);
+            feat
         })
     }
 }
@@ -144,11 +154,49 @@ fn log_mel_energies(
 
 fn dct(
     log_mel_energies: &[f32; NUM_MEL_FILTERS],
-    dct_matrix: &[[f32; NUM_MEL_FILTERS]; NUM_DCT_COEFFS],
+    dct_matrix: &[[f32; NUM_MEL_FILTERS]; NUM_MFCC],
 ) -> [f32; NUM_MFCC] {
     core::array::from_fn(|i| {
         (0..NUM_MEL_FILTERS)
-            .map(|j| dct_matrix[i+1][j] * log_mel_energies[j])
+            .map(|j| dct_matrix[i][j] * log_mel_energies[j])
             .sum()
     })
+}
+
+/// Expand a sequence of base MFCCs into [base | delta | delta-delta] feature
+/// vectors, writing into a caller-provided buffer to avoid a large internal
+/// allocation.
+pub async fn window_to_features_into<const N: usize>(
+    base: &[[f32; NUM_MFCC]; N],
+    out: &mut [[f32; FEATURE_SIZE]; N],
+) {
+    // First pass: compute all deltas (needed as input for delta-delta)
+    let mut delta = [[0f32; NUM_MFCC]; N];
+    for i in 0..N {
+        delta[i] = compute_delta_frame(base, i);
+        yield_now().await;
+    }
+    // Second pass: compute delta-delta and write feature vectors directly into out
+    for i in 0..N {
+        let dd = compute_delta_frame(&delta, i);
+        out[i][..NUM_MFCC].copy_from_slice(&base[i]);
+        out[i][NUM_MFCC..NUM_MFCC * 2].copy_from_slice(&delta[i]);
+        out[i][NUM_MFCC * 2..].copy_from_slice(&dd);
+        yield_now().await;
+    }
+}
+
+fn compute_delta_frame<const N: usize>(frames: &[[f32; NUM_MFCC]; N], i: usize) -> [f32; NUM_MFCC] {
+    core::array::from_fn(|k| {
+        (1..=DELTA_N).map(|n| {
+            let prev = frames[i.saturating_sub(n)][k];
+            let next = frames[(i + n).min(N - 1)][k];
+            n as f32 * (next - prev)
+        })
+        .sum::<f32>() / DELTA_DENOM
+    })
+}
+
+fn compute_deltas<const N: usize>(frames: &[[f32; NUM_MFCC]; N]) -> [[f32; NUM_MFCC]; N] {
+    core::array::from_fn(|i| compute_delta_frame(frames, i))
 }
