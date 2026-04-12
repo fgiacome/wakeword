@@ -12,7 +12,7 @@ use embassy_sync::channel::{Channel, Receiver};
 use embassy_time::Instant;
 use static_cell::StaticCell;
 use wakew::dtw::dtw;
-use wakew::mfcc::{FRAME_SIZE, Mfcc, NUM_MFCC, SHIFT_WIDTH};
+use wakew::mfcc::{FEATURE_SIZE, FRAME_SIZE, Mfcc, NUM_MFCC, SHIFT_WIDTH, window_to_features_into};
 use {defmt_rtt as _, panic_probe as _};
 use embedded_wakew::utils::{RingBuffer, WakeWordError, from_i16_pcm_to_f32, prepare_mic_saadc};
 
@@ -22,13 +22,17 @@ bind_interrupts!(struct Irqs {
 
 include!("../../reference.rs");
 
-const WINDOW_SIZE: usize = (15000 - FRAME_SIZE + SHIFT_WIDTH -1) / SHIFT_WIDTH;
+// Window must exceed the reference frame count (146) to allow timing variation.
+// 18000 samples @ 16kHz gives 176 frames.
+const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
+const MFCC_SHIFT: usize = 84;
 
-static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], 28>> = StaticCell::new();
+static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], MFCC_SHIFT>> = StaticCell::new();
 
 #[embassy_executor::task]
-async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], 28>, mut pin: Output<'static>) {
-    let mut buf = RingBuffer::<WINDOW_SIZE, 28, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
+async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], MFCC_SHIFT>, mut pin: Output<'static>) {
+    let mut buf = RingBuffer::<WINDOW_SIZE, MFCC_SHIFT, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
+    let mut features = [[0f32; FEATURE_SIZE]; WINDOW_SIZE];
     loop {
         let data = receiver.receive().await;
         match buf.update(&[data]) {
@@ -36,8 +40,9 @@ async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], 28
             _ => ()
         };
         if let Some(window) = buf.frame() {
+            window_to_features_into(&window, &mut features).await;
             let start = Instant::now();
-            let distance = dtw(&REFERENCE, &window).await;
+            let distance = dtw(&REFERENCE, &features).await;
             let elapsed = start.elapsed().as_millis();
             info!("Duration took {} ms", elapsed);
             info!("Distance: {}", distance);
