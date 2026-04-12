@@ -17,13 +17,13 @@ fn distance<const F: usize>(a: &[f32; F], b: &[f32; F]) -> f32 {
     (1.0 - cosine_similarity(a, b))/2.
 }
 
-fn time_aware_distance<const F: usize>(a: &[f32; F], b: &[f32; F], i: usize, j: usize, max_delay: usize) -> f32 {
-    if j.abs_diff(i) > max_delay {
-        f32::INFINITY
-    }
-    else {
-        distance(a, b)
-    }
+fn in_band(i: usize, j: usize, n: usize, m: usize, max_delay: usize) -> bool {
+    // Check if (i, j) is within max_delay steps of the diagonal from (0,0) to
+    // (N-1,M-1).  j_diag = i * (M-1) / (N-1); we compare using
+    // cross-multiplication to avoid floats.
+    let lhs = j * (n - 1);
+    let rhs = i * (m - 1);
+    lhs.abs_diff(rhs) <= max_delay * (n - 1)
 }
 
 pub async fn dtw<const N: usize, const M: usize, const F: usize>(
@@ -35,16 +35,22 @@ pub async fn dtw<const N: usize, const M: usize, const F: usize>(
 
     prev[0] = distance(&a[0], &b[0]);
     for j in 1..M {
-        prev[j] = prev[j-1] + time_aware_distance(&a[0], &b[j], 0, j, MAX_DELAY);
+        if in_band(0, j, N, M, MAX_DELAY) {
+            prev[j] = prev[j-1] + distance(&a[0], &b[j]);
+        }
     }
 
     yield_now().await;
 
     for i in 1..N {
-        curr[0] = prev[0] + time_aware_distance(&a[i], &b[0], i, 0, MAX_DELAY);
+        if in_band(i, 0, N, M, MAX_DELAY) {
+            curr[0] = prev[0] + distance(&a[i], &b[0]);
+        }
         for j in 1..M {
-            let dist = time_aware_distance(&a[i], &b[j], i, j, MAX_DELAY);
-            curr[j] = dist + prev[j].min(curr[j-1]).min(prev[j-1]);
+            if in_band(i, j, N, M, MAX_DELAY) {
+                let dist = distance(&a[i], &b[j]);
+                curr[j] = dist + prev[j].min(curr[j-1]).min(prev[j-1]);
+            }
         }
         core::mem::swap(&mut prev, &mut curr);
         curr = [f32::INFINITY; M];
