@@ -3,12 +3,8 @@ import wave
 
 raw_text = open("recording.raw").read().strip()
 
-print(f"{len(raw_text)}")
 # slice into 2-char hex bytes
 raw_bytes = bytes(int(raw_text[i:i+2], base=16) for i in range(0, len(raw_text), 2))
-
-print(f"{len(raw_bytes)}")
-
 
 samples = np.frombuffer(raw_bytes, dtype="<i2")
 
