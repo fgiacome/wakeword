@@ -2,5 +2,8 @@
 resolver="3"
 members=["wakew", "embedded_wakew"]
 
+[profile.dev]
+opt-level = 1
+
 [profile.release]
 debug = 2
