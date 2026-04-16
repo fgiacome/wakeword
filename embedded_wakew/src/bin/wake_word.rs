@@ -84,14 +84,17 @@ async fn infer(
     }
 }
 
-async fn scan_smiley(rows: &mut [Output<'static>; 5], cols: &mut [Output<'static>; 5]) {
-    for r in 0..5 {
-        for c in 0..5 {
-            if SMILEY[r][c] { cols[c].set_low(); } else { cols[c].set_high(); }
+async fn scan_smiley(rows: &mut [Output<'static>; 5], cols: &mut [Output<'static>; 5], duration: Duration) {
+    let end = Instant::now() + duration;
+    while Instant::now() < end {
+        for r in 0..5 {
+            for c in 0..5 {
+                if SMILEY[r][c] { cols[c].set_low(); } else { cols[c].set_high(); }
+            }
+            rows[r].set_high();
+            Timer::after_micros(1000).await;
+            rows[r].set_low();
         }
-        rows[r].set_high();
-        Timer::after_micros(2000).await;
-        rows[r].set_low();
     }
     for col in cols.iter_mut() { col.set_high(); }
 }
@@ -106,26 +109,17 @@ async fn celebrate(
     loop {
         detected.wait().await;
 
-        // Play jingle while displaying smiley
         pwm.enable();
         for (freq, duration_ms) in JINGLE {
             let top = (1_000_000u32 / freq) as u16;
             pwm.set_max_duty(top);
             pwm.set_duty(0, DutyCycle::normal(top / 2));
-            let end = Instant::now() + Duration::from_millis(duration_ms);
-            while Instant::now() < end {
-                scan_smiley(&mut rows, &mut cols).await;
-            }
+            scan_smiley(&mut rows, &mut cols, Duration::from_millis(duration_ms)).await;
         }
         pwm.disable();
 
-        // Hold smiley for 2 more seconds in silence
-        let end = Instant::now() + Duration::from_millis(2000);
-        while Instant::now() < end {
-            scan_smiley(&mut rows, &mut cols).await;
-        }
+        scan_smiley(&mut rows, &mut cols, Duration::from_millis(2000)).await;
 
-        // Turn off display and drop any detection that fired during celebration
         for row in rows.iter_mut() { row.set_low(); }
         for col in cols.iter_mut() { col.set_high(); }
         detected.reset();
