@@ -29,6 +29,7 @@ fn in_band(i: usize, j: usize, n: usize, m: usize, max_delay: usize) -> bool {
 pub async fn dtw<const N: usize, const M: usize, const F: usize>(
     a: &[[f32; F]; N],
     b: &[[f32; F]; M],
+    threshold: f32,
 ) -> f32 {
     let mut prev = [f32::INFINITY; M];
     let mut curr = [f32::INFINITY; M];
@@ -43,14 +44,22 @@ pub async fn dtw<const N: usize, const M: usize, const F: usize>(
     yield_now().await;
 
     for i in 1..N {
+        let mut row_min = f32::INFINITY;
         if in_band(i, 0, N, M, MAX_DELAY) {
             curr[0] = prev[0] + distance(&a[i], &b[0]);
+            row_min = row_min.min(curr[0]);
         }
         for j in 1..M {
             if in_band(i, j, N, M, MAX_DELAY) {
                 let dist = distance(&a[i], &b[j]);
                 curr[j] = dist + prev[j].min(curr[j-1]).min(prev[j-1]);
+                row_min = row_min.min(curr[j]);
             }
+        }
+        // All DTW costs are non-negative, so if every reachable cell already
+        // exceeds the threshold the final answer will too.
+        if row_min > threshold {
+            return f32::INFINITY;
         }
         core::mem::swap(&mut prev, &mut curr);
         curr = [f32::INFINITY; M];
