@@ -22,15 +22,17 @@ bind_interrupts!(struct Irqs {
 
 include!("../../reference.rs");
 
+const DETECT_THRESHOLD: f32 = 70f32;
 // Window must exceed the reference frame count (146) to allow timing variation.
-// 18000 samples @ 16kHz gives 176 frames.
-const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
-const MFCC_SHIFT: usize = 84;
+// 16500 samples @ 16kHz gives 176 frames.
+const WINDOW_SIZE: usize = (16500 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
+const MFCC_SHIFT: usize = 120;
+const CHANNEL_SIZE: usize = 160;
 
-static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], MFCC_SHIFT>> = StaticCell::new();
+static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], CHANNEL_SIZE>> = StaticCell::new();
 
 #[embassy_executor::task]
-async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], MFCC_SHIFT>, mut pin: Output<'static>) {
+async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], CHANNEL_SIZE>, mut pin: Output<'static>) {
     let mut buf = RingBuffer::<WINDOW_SIZE, MFCC_SHIFT, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
     let mut features = [[0f32; FEATURE_SIZE]; WINDOW_SIZE];
     loop {
@@ -42,11 +44,14 @@ async fn blink_led(receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], MF
         if let Some(window) = buf.frame() {
             window_to_features_into(&window, &mut features).await;
             let start = Instant::now();
-            let distance = dtw(&REFERENCE, &features).await;
+            let mut min_distance = f32::INFINITY;
+            for reference in REFERENCES {
+                let d = dtw(reference, &features, DETECT_THRESHOLD).await;
+                if d < min_distance { min_distance = d; }
+            }
             let elapsed = start.elapsed().as_millis();
-            info!("Duration took {} ms", elapsed);
-            info!("Distance: {}", distance);
-            if distance < 0.8 {
+            info!("All DTW took {} ms, min distance: {}", elapsed, min_distance);
+            if min_distance < DETECT_THRESHOLD {
                 pin.toggle();
             }
         }
