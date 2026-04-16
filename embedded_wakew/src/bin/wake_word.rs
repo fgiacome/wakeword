@@ -92,7 +92,7 @@ async fn scan_smiley(rows: &mut [Output<'static>; 5], cols: &mut [Output<'static
                 if SMILEY[r][c] { cols[c].set_low(); } else { cols[c].set_high(); }
             }
             rows[r].set_high();
-            Timer::after_micros(1000).await;
+            Timer::after_micros(2000).await;
             rows[r].set_low();
         }
     }
