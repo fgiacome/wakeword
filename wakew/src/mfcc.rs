@@ -23,7 +23,7 @@ pub const NUM_MFCC: usize = 12;
 /// Feature vector size per frame: base MFCCs + delta
 pub const FEATURE_SIZE: usize = NUM_MFCC * 2;
 /// How many samples to shift for each MFCC calculation
-pub const SHIFT_WIDTH: usize = 100;
+pub const SHIFT_WIDTH: usize = 200;
 
 /// Number of kept FFT coeffiecients
 const FFT_RETURN_SIZE: usize = 256;

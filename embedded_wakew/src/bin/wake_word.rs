@@ -22,12 +22,12 @@ bind_interrupts!(struct Irqs {
 
 include!("../../reference.rs");
 
-const DETECT_THRESHOLD: f32 = 70f32;
+const DETECT_THRESHOLD: f32 = 13f32;
 // Window must exceed the reference frame count (146) to allow timing variation.
 // 16500 samples @ 16kHz gives 176 frames.
-const WINDOW_SIZE: usize = (16500 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
-const MFCC_SHIFT: usize = 120;
-const CHANNEL_SIZE: usize = 160;
+const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
+const MFCC_SHIFT: usize = 15;
+const CHANNEL_SIZE: usize = 300;
 
 static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], CHANNEL_SIZE>> = StaticCell::new();
 
