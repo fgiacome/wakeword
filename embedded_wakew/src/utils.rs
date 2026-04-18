@@ -9,62 +9,61 @@ pub enum WakeWordError {
     WouldOverflow,
 }
 
-/// A RingBuffer that returns a copy of the entire buffer starting from the most
-/// recently read position.
+/// A RingBuffer that returns windows size `W` shifiting `S` elements ahead each
+/// time.
 ///
 /// ## Generic params
-/// B is the size of the buffer, S is the amount of new samples that must be
-/// written to the buffer before getting a new read, and T is the underlying
-/// data type.
-///
-/// `U` must be >= `S` and not more than `U` samples at a time should be written
-/// to the buffer.
-pub struct RingBuffer<const B: usize, const S: usize, T> {
+/// B is the size of the buffer, W is the size of the window, S is the amount of
+/// the shift, and T is the underlying data type.
+pub struct RingBuffer<const B: usize, const W: usize, const S: usize, T> {
     b: [T; B],
-    start: usize,
+    next_write: usize,
     last_read: usize,
     free_space: usize,
 }
 
-impl<const B: usize, const S: usize, T: Copy> RingBuffer<B, S, T> {
+impl<const B: usize, const W: usize, const S: usize, T: Copy> RingBuffer<B, W, S, T> {
     pub fn new(init: T) -> Self {
         let b = [init; B];
-        let start = 0;
+        let next_write = 0;
         let last_read = 0;
         let free_space = B;
         RingBuffer {
             b,
-            start,
+            next_write,
             last_read,
             free_space,
         }
     }
 
     /// This function writes the samples contained in `u` to the buffer.
+    /// 
+    /// It returns an `Err(WakewordError::WouldOverflow)` and writes nothing if
+    /// `u` is longer than the free spaces available in the buffer.
     pub fn update(&mut self, u: &[T]) -> Result<(), WakeWordError> {
         if u.len() > self.free_space {
             return Err(WakeWordError::WouldOverflow);
         }
         for i in 0..u.len() {
-            self.b[(self.start + i) % B] = u[i];
+            self.b[(self.next_write + i) % B] = u[i];
         }
-        self.start = (self.start + u.len()) % B;
+        self.next_write = (self.next_write + u.len()) % B;
         self.free_space -= u.len();
         Ok(())
     }
 
-    /// This function returns the data contained in the buffer from least to
-    /// most recent. If fewer than `S` unread samples are present in the buffer,
+    /// This function returns a window of size `W` shifting `S` samples ahead at
+    /// every call. If fewer than `S` unread samples are present in the buffer,
     /// returns None.
-    pub fn frame(&mut self) -> Option<[T; B]> {
-        let virtual_start = if self.start >= self.last_read {
-            self.start
+    pub fn frame(&mut self) -> Option<[T; W]> {
+        let virtual_start = if self.next_write >= self.last_read {
+            self.next_write
         } else {
-            self.start + B
+            self.next_write + B
         };
         let to_read = virtual_start - self.last_read;
         if to_read > S {
-            self.free_space += to_read;
+            self.free_space += S;
             let buf = core::array::from_fn(|i| self.b[(self.last_read + i) % B]);
             self.last_read = (self.last_read + S) % B;
             Some(buf)
@@ -74,6 +73,8 @@ impl<const B: usize, const S: usize, T: Copy> RingBuffer<B, S, T> {
     }
 }
 
+/// Enables the microphone via the enable pin and initializes the SAADC for wake
+/// word recognition.
 pub fn prepare_mic_saadc<'b>(
     saadc_peri: Peri<'b, SAADC>,
     p0_20_peri: Peri<'b, P0_20>,

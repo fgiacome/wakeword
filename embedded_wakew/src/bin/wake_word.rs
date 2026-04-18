@@ -24,7 +24,7 @@ bind_interrupts!(struct Irqs {
 
 include!("../../reference.rs");
 
-const DETECT_THRESHOLD: f32 = 13f32;
+const DETECT_THRESHOLD: f32 = 15f32;
 // Window must exceed the reference frame count (146) to allow timing variation.
 // 16500 samples @ 16kHz gives 176 frames.
 const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
@@ -59,7 +59,7 @@ async fn infer(
     receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], CHANNEL_SIZE>,
     detected: &'static Signal<NoopRawMutex, ()>,
 ) {
-    let mut buf = RingBuffer::<WINDOW_SIZE, MFCC_SHIFT, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
+    let mut buf = RingBuffer::<WINDOW_SIZE, WINDOW_SIZE, MFCC_SHIFT, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
     let mut features = [[0f32; FEATURE_SIZE]; WINDOW_SIZE];
     loop {
         let data = receiver.receive().await;
@@ -158,7 +158,7 @@ async fn main(s: Spawner) {
     // DMA buffers
     let mut bufs = [[[0; 1]; 100]; 2];
     // Buffer to copy DMA samples to and perform MFCC conversion from
-    let mut audio_sample_buffer = RingBuffer::<FRAME_SIZE, SHIFT_WIDTH, f32>::new(0f32);
+    let mut audio_sample_buffer = RingBuffer::<FRAME_SIZE, FRAME_SIZE, SHIFT_WIDTH, f32>::new(0f32);
     let mfcc = Mfcc::new();
     saadc.calibrate().await;
 
