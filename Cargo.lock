@@ -473,25 +473,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embedded_wakew"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "defmt 1.0.1",
- "defmt-rtt",
- "embassy-executor",
- "embassy-nrf",
- "embassy-sync",
- "embassy-time",
- "panic-probe",
- "rtt-target",
- "static_cell",
- "thiserror",
- "wakew",
-]
-
-[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1062,6 +1043,25 @@ dependencies = [
  "hound",
  "libm",
  "microfft",
+]
+
+[[package]]
+name = "wakew_microbit"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "defmt 1.0.1",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-nrf",
+ "embassy-sync",
+ "embassy-time",
+ "panic-probe",
+ "rtt-target",
+ "static_cell",
+ "thiserror",
+ "wakew",
 ]
 
 [[package]]
