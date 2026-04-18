@@ -1,20 +1,20 @@
-use libm::sqrtf;
 use embassy_futures::yield_now;
+use libm::sqrtf;
 
 const MAX_DELAY: usize = 17;
 
 fn cosine_similarity<const S: usize>(a: &[f32; S], b: &[f32; S]) -> f32 {
     let norm_a = sqrtf(a.iter().map(|v| v * v).sum::<f32>()) + 1e-5;
     let norm_b = sqrtf(b.iter().map(|v| v * v).sum::<f32>()) + 1e-5;
-    a.iter().enumerate()
+    a.iter()
+        .enumerate()
         .map(|(i, v)| *v * b[i])
         .map(|v| v / norm_a / norm_b)
         .sum::<f32>()
 }
 
-
 fn distance<const F: usize>(a: &[f32; F], b: &[f32; F]) -> f32 {
-    (1.0 - cosine_similarity(a, b))/2.
+    (1.0 - cosine_similarity(a, b)) / 2.
 }
 
 fn in_band(i: usize, j: usize, n: usize, m: usize, max_delay: usize) -> bool {
@@ -37,7 +37,7 @@ pub async fn dtw<const N: usize, const M: usize, const F: usize>(
     prev[0] = distance(&a[0], &b[0]);
     for j in 1..M {
         if in_band(0, j, N, M, MAX_DELAY) {
-            prev[j] = prev[j-1] + distance(&a[0], &b[j]);
+            prev[j] = prev[j - 1] + distance(&a[0], &b[j]);
         }
     }
 
@@ -52,7 +52,7 @@ pub async fn dtw<const N: usize, const M: usize, const F: usize>(
         for j in 1..M {
             if in_band(i, j, N, M, MAX_DELAY) {
                 let dist = distance(&a[i], &b[j]);
-                curr[j] = dist + prev[j].min(curr[j-1]).min(prev[j-1]);
+                curr[j] = dist + prev[j].min(curr[j - 1]).min(prev[j - 1]);
                 row_min = row_min.min(curr[j]);
             }
         }
@@ -66,7 +66,7 @@ pub async fn dtw<const N: usize, const M: usize, const F: usize>(
         yield_now().await;
     }
 
-    prev[M-1]
+    prev[M - 1]
 }
 
 #[cfg(test)]

@@ -1,5 +1,7 @@
 use embassy_nrf::{
-    Peri, gpio, interrupt, peripherals::{P0_05, P0_20, SAADC}, saadc
+    Peri, gpio, interrupt,
+    peripherals::{P0_05, P0_20, SAADC},
+    saadc,
 };
 use thiserror::Error;
 
@@ -37,7 +39,7 @@ impl<const B: usize, const W: usize, const S: usize, T: Copy> RingBuffer<B, W, S
     }
 
     /// This function writes the samples contained in `u` to the buffer.
-    /// 
+    ///
     /// It returns an `Err(WakewordError::WouldOverflow)` and writes nothing if
     /// `u` is longer than the free spaces available in the buffer.
     pub fn update(&mut self, u: &[T]) -> Result<(), WakeWordError> {
@@ -81,11 +83,7 @@ pub fn prepare_mic_saadc<'b>(
     p0_05_peri: Peri<'b, P0_05>,
     irq: impl interrupt::typelevel::Binding<interrupt::typelevel::SAADC, saadc::InterruptHandler> + 'b,
 ) -> (saadc::Saadc<'b, 1>, gpio::Output<'b>) {
-    let mic_pwr = gpio::Output::new(
-        p0_20_peri,
-        gpio::Level::High,
-        gpio::OutputDrive::Standard,
-    );
+    let mic_pwr = gpio::Output::new(p0_20_peri, gpio::Level::High, gpio::OutputDrive::Standard);
     let mut config = saadc::Config::default();
     config.resolution = saadc::Resolution::_12BIT;
     let mut channel_config = saadc::ChannelConfig::single_ended(p0_05_peri);

@@ -4,9 +4,9 @@
 use embassy_executor::Spawner;
 use embassy_nrf::saadc::CallbackResult;
 use embassy_nrf::timer::Frequency;
-use panic_probe as _;
 use embassy_nrf::{bind_interrupts, saadc};
 use embedded_wakew::utils::prepare_mic_saadc;
+use panic_probe as _;
 use rtt_target::rprint;
 
 const SAMPLES: usize = 18000;
@@ -14,7 +14,6 @@ const SAMPLES: usize = 18000;
 bind_interrupts!(struct Irqs {
     SAADC => saadc::InterruptHandler;
 });
-
 
 #[embassy_executor::main]
 async fn main(_s: Spawner) {
@@ -25,9 +24,8 @@ async fn main(_s: Spawner) {
     let mut dma_bufs = [[[0; 1]; 512]; 2];
     let mut final_buf = [0i16; SAMPLES];
     let mut written: usize = 0;
-    
-    saadc.calibrate().await;
 
+    saadc.calibrate().await;
 
     saadc
         .run_task_sampler(
@@ -39,7 +37,7 @@ async fn main(_s: Spawner) {
             &mut dma_bufs,
             |b| {
                 let offset = b.len().min(SAMPLES - written);
-                final_buf[written..(written+offset)]
+                final_buf[written..(written + offset)]
                     .as_mut()
                     .iter_mut()
                     .enumerate()
@@ -48,8 +46,7 @@ async fn main(_s: Spawner) {
 
                 if written < final_buf.len() {
                     CallbackResult::Continue
-                }
-                else {
+                } else {
                     CallbackResult::Stop
                 }
             },

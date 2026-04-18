@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use defmt::{info, warn, error};
+use defmt::{error, info, warn};
 use embassy_executor::Spawner;
 use embassy_nrf::gpio::{Level, Output, OutputDrive};
 use embassy_nrf::pwm::{DutyCycle, SimpleConfig, SimplePwm};
@@ -12,11 +12,11 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::{Channel, Receiver};
 use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Instant, Timer};
+use embedded_wakew::utils::{RingBuffer, WakeWordError, from_i16_pcm_to_f32, prepare_mic_saadc};
 use static_cell::StaticCell;
 use wakew::dtw::dtw;
 use wakew::mfcc::{FEATURE_SIZE, FRAME_SIZE, Mfcc, NUM_MFCC, SHIFT_WIDTH, window_to_features_into};
 use {defmt_rtt as _, panic_probe as _};
-use embedded_wakew::utils::{RingBuffer, WakeWordError, from_i16_pcm_to_f32, prepare_mic_saadc};
 
 bind_interrupts!(struct Irqs {
     SAADC => saadc::InterruptHandler;
@@ -36,22 +36,23 @@ const CHANNEL_SIZE: usize = 300;
 // Rows are active-high; columns are active-low. true = LED on.
 const SMILEY: [[bool; 5]; 5] = [
     [false, false, false, false, false],
-    [false, true,  false, true,  false],  // eyes
+    [false, true, false, true, false], // eyes
     [false, false, false, false, false],
-    [true,  false, false, false, true ],  // mouth corners
-    [false, true,  true,  true,  false],  // mouth
+    [true, false, false, false, true], // mouth corners
+    [false, true, true, true, false],  // mouth
 ];
 
 // Jingle played on detection: (frequency Hz, duration ms).
 // SimpleConfig default uses Prescaler::Div16 → 1 MHz counter; top = 1_000_000 / freq.
 const JINGLE: [(u32, u64); 4] = [
-    (523,  150),   // C5
-    (659,  150),   // E5
-    (784,  150),   // G5
-    (1047, 500),   // C6
+    (523, 150),  // C5
+    (659, 150),  // E5
+    (784, 150),  // G5
+    (1047, 500), // C6
 ];
 
-static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], CHANNEL_SIZE>> = StaticCell::new();
+static CHANNEL: StaticCell<Channel<NoopRawMutex, [f32; NUM_MFCC], CHANNEL_SIZE>> =
+    StaticCell::new();
 static DETECTED: StaticCell<Signal<NoopRawMutex, ()>> = StaticCell::new();
 
 #[embassy_executor::task]
@@ -59,13 +60,16 @@ async fn infer(
     receiver: Receiver<'static, NoopRawMutex, [f32; NUM_MFCC], CHANNEL_SIZE>,
     detected: &'static Signal<NoopRawMutex, ()>,
 ) {
-    let mut buf = RingBuffer::<WINDOW_SIZE, WINDOW_SIZE, MFCC_SHIFT, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
+    let mut buf =
+        RingBuffer::<WINDOW_SIZE, WINDOW_SIZE, MFCC_SHIFT, [f32; NUM_MFCC]>::new([0f32; NUM_MFCC]);
     let mut features = [[0f32; FEATURE_SIZE]; WINDOW_SIZE];
     loop {
         let data = receiver.receive().await;
         match buf.update(&[data]) {
-            Err(WakeWordError::WouldOverflow) => error!("Error writing to mfcc ringbuffer, would overflow"),
-            _ => ()
+            Err(WakeWordError::WouldOverflow) => {
+                error!("Error writing to mfcc ringbuffer, would overflow")
+            }
+            _ => (),
         };
         if let Some(window) = buf.frame() {
             window_to_features_into(&window, &mut features).await;
@@ -73,10 +77,15 @@ async fn infer(
             let mut min_distance = f32::INFINITY;
             for reference in REFERENCES {
                 let d = dtw(reference, &features, DETECT_THRESHOLD).await;
-                if d < min_distance { min_distance = d; }
+                if d < min_distance {
+                    min_distance = d;
+                }
             }
             let elapsed = start.elapsed().as_millis();
-            info!("All DTW took {} ms, min distance: {}", elapsed, min_distance);
+            info!(
+                "All DTW took {} ms, min distance: {}",
+                elapsed, min_distance
+            );
             if min_distance < DETECT_THRESHOLD {
                 detected.signal(());
             }
@@ -84,19 +93,29 @@ async fn infer(
     }
 }
 
-async fn scan_smiley(rows: &mut [Output<'static>; 5], cols: &mut [Output<'static>; 5], duration: Duration) {
+async fn scan_smiley(
+    rows: &mut [Output<'static>; 5],
+    cols: &mut [Output<'static>; 5],
+    duration: Duration,
+) {
     let end = Instant::now() + duration;
     while Instant::now() < end {
         for r in 0..5 {
             for c in 0..5 {
-                if SMILEY[r][c] { cols[c].set_low(); } else { cols[c].set_high(); }
+                if SMILEY[r][c] {
+                    cols[c].set_low();
+                } else {
+                    cols[c].set_high();
+                }
             }
             rows[r].set_high();
             Timer::after_micros(2000).await;
             rows[r].set_low();
         }
     }
-    for col in cols.iter_mut() { col.set_high(); }
+    for col in cols.iter_mut() {
+        col.set_high();
+    }
 }
 
 #[embassy_executor::task]
@@ -120,8 +139,12 @@ async fn celebrate(
 
         scan_smiley(&mut rows, &mut cols, Duration::from_millis(2000)).await;
 
-        for row in rows.iter_mut() { row.set_low(); }
-        for col in cols.iter_mut() { col.set_high(); }
+        for row in rows.iter_mut() {
+            row.set_low();
+        }
+        for col in cols.iter_mut() {
+            col.set_high();
+        }
         detected.reset();
     }
 }
@@ -179,8 +202,10 @@ async fn main(s: Spawner) {
                     u[i] = from_i16_pcm_to_f32(b[i][0]);
                 }
                 match audio_sample_buffer.update(&u[0..b.len()]) {
-                    Err(WakeWordError::WouldOverflow) => error!("Error writing to audio sample buffer, would overflow"),
-                    Ok(()) => ()
+                    Err(WakeWordError::WouldOverflow) => {
+                        error!("Error writing to audio sample buffer, would overflow")
+                    }
+                    Ok(()) => (),
                 };
                 while let Some(frame) = audio_sample_buffer.frame() {
                     let mfcc_res = mfcc.mfcc(&frame);

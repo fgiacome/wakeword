@@ -1,6 +1,6 @@
 //! The workflow to calculate MFCCs for a `FRAME_SIZE`-sample frame is the
 //! following:
-//! 
+//!
 //! 1. `FFT_SIZE`-point FFT of `FRAME_SIZE` samples
 //! 1. First `FFT_RETURN_SIZE` FFT coefficients are kept
 //! 1. `FFT_RETURN_SIZE` FFT coefficients are passed through the Mel filterbank,
@@ -15,7 +15,7 @@ use microfft::{Complex32, real::rfft_512};
 /// Expected audio sample rate
 pub const SAMPLE_RATE: f32 = 16_000.;
 /// 25ms of audio @ 16kHz
-/// 
+///
 /// We calculate MFCCs for 400 samples
 pub const FRAME_SIZE: usize = 400;
 /// Number of MFCCs for each `FRAME_SIZE` samples
@@ -118,7 +118,10 @@ impl Mfcc {
         dct(&post_log_mel_energies, &self.dct_matrix)
     }
 
-    pub fn seq_mfcc<const S: usize, const N: usize>(&self, seq: &[f32; S]) -> [[f32; FEATURE_SIZE]; N] {
+    pub fn seq_mfcc<const S: usize, const N: usize>(
+        &self,
+        seq: &[f32; S],
+    ) -> [[f32; FEATURE_SIZE]; N] {
         assert_eq!((S - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH, N);
         let base: [[f32; NUM_MFCC]; N] = core::array::from_fn(|i| {
             let mut frame = [0f32; FRAME_SIZE];
@@ -196,11 +199,13 @@ pub async fn window_to_features_into<const N: usize>(
 
 fn compute_delta_frame<const N: usize>(frames: &[[f32; NUM_MFCC]; N], i: usize) -> [f32; NUM_MFCC] {
     core::array::from_fn(|k| {
-        (1..=DELTA_N).map(|n| {
-            let prev = frames[i.saturating_sub(n)][k];
-            let next = frames[(i + n).min(N - 1)][k];
-            n as f32 * (next - prev)
-        })
-        .sum::<f32>() / DELTA_DENOM
+        (1..=DELTA_N)
+            .map(|n| {
+                let prev = frames[i.saturating_sub(n)][k];
+                let next = frames[(i + n).min(N - 1)][k];
+                n as f32 * (next - prev)
+            })
+            .sum::<f32>()
+            / DELTA_DENOM
     })
 }

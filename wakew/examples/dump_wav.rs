@@ -15,7 +15,11 @@ fn load(path: &str, mfcc: &Mfcc) -> [[f32; FEATURE_SIZE]; NUM_FRAMES] {
     });
     let spec = reader.spec();
     assert_eq!(spec.channels, 1, "{}: only mono supported", path);
-    assert_eq!(spec.bits_per_sample, 16, "{}: only 16-bit PCM supported", path);
+    assert_eq!(
+        spec.bits_per_sample, 16,
+        "{}: only 16-bit PCM supported",
+        path
+    );
 
     let samples: Vec<f32> = reader
         .samples::<i16>()
@@ -25,7 +29,12 @@ fn load(path: &str, mfcc: &Mfcc) -> [[f32; FEATURE_SIZE]; NUM_FRAMES] {
     let mut floats = [0f32; SIZE];
     let copy_len = samples.len().min(SIZE);
     if SIZE < samples.len() {
-        let _ = writeln!(stderr(), "{}: truncating {} samples", path, samples.len() - SIZE);
+        let _ = writeln!(
+            stderr(),
+            "{}: truncating {} samples",
+            path,
+            samples.len() - SIZE
+        );
     } else if copy_len < SIZE {
         let _ = writeln!(stderr(), "{}: padding {} samples", path, SIZE - copy_len);
     }
@@ -35,7 +44,10 @@ fn load(path: &str, mfcc: &Mfcc) -> [[f32; FEATURE_SIZE]; NUM_FRAMES] {
 
 fn print_array(name: &str, path: &str, data: &[[f32; FEATURE_SIZE]; NUM_FRAMES]) {
     println!("// {} — {} samples", path, SIZE);
-    println!("pub const {}: [[f32; {}]; {}] = [", name, FEATURE_SIZE, NUM_FRAMES);
+    println!(
+        "pub const {}: [[f32; {}]; {}] = [",
+        name, FEATURE_SIZE, NUM_FRAMES
+    );
     for v in data.iter() {
         print!("    [ ");
         for c in v.iter() {
@@ -59,7 +71,9 @@ fn main() {
     let names: Vec<String> = if paths.len() == 1 {
         vec!["REFERENCE".to_string()]
     } else {
-        (1..=paths.len()).map(|i| format!("REFERENCE_{}", i)).collect()
+        (1..=paths.len())
+            .map(|i| format!("REFERENCE_{}", i))
+            .collect()
     };
 
     for (path, name) in paths.iter().zip(names.iter()) {
@@ -68,7 +82,12 @@ fn main() {
     }
 
     if paths.len() > 1 {
-        println!("pub const REFERENCES: [&[[f32; {}]; {}]; {}] = [", FEATURE_SIZE, NUM_FRAMES, paths.len());
+        println!(
+            "pub const REFERENCES: [&[[f32; {}]; {}]; {}] = [",
+            FEATURE_SIZE,
+            NUM_FRAMES,
+            paths.len()
+        );
         for name in &names {
             println!("    &{},", name);
         }

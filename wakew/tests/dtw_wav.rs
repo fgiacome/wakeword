@@ -1,5 +1,5 @@
-use wakew::mfcc::{ FRAME_SIZE, Mfcc, NUM_MFCC, SAMPLE_RATE, SHIFT_WIDTH};
 use wakew::dtw::dtw;
+use wakew::mfcc::{FRAME_SIZE, Mfcc, NUM_MFCC, SAMPLE_RATE, SHIFT_WIDTH};
 
 const SIZE: usize = 24000;
 const NUM_FRAMES: usize = (SIZE - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
@@ -25,7 +25,7 @@ fn dtw_wav() {
     let sample_none = load_wav("../assets/sample_none.wav");
 
     let reference_mfcc: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&reference);
-    let detect_mfcc: [[f32; _]; NUM_FRAMES]= mfcc.seq_mfcc(&sample_detect);
+    let detect_mfcc: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&sample_detect);
     let detect_b_mfcc: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&sample_detect_b);
     let none_mfcc: [[f32; _]; NUM_FRAMES] = mfcc.seq_mfcc(&sample_none);
 
