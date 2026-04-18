@@ -25,8 +25,7 @@ bind_interrupts!(struct Irqs {
 include!("../../reference.rs");
 
 const DETECT_THRESHOLD: f32 = 14f32;
-// Window must exceed the reference frame count (146) to allow timing variation.
-// 16500 samples @ 16kHz gives 176 frames.
+// 18000 samples gives 88 frames.
 const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
 const MFCC_SHIFT: usize = 15;
 const CHANNEL_SIZE: usize = 300;
@@ -43,7 +42,9 @@ const SMILEY: [[bool; 5]; 5] = [
 ];
 
 // Jingle played on detection: (frequency Hz, duration ms).
-// SimpleConfig default uses Prescaler::Div16 → 1 MHz counter; top = 1_000_000 / freq.
+//
+// SimpleConfig default uses Prescaler::Div16 -> 1 MHz counter;
+// top = 1_000_000 // freq.
 const JINGLE: [(u32, u64); 4] = [
     (523, 150),  // C5
     (659, 150),  // E5
@@ -139,12 +140,6 @@ async fn celebrate(
 
         scan_smiley(&mut rows, &mut cols, Duration::from_millis(2000)).await;
 
-        for row in rows.iter_mut() {
-            row.set_low();
-        }
-        for col in cols.iter_mut() {
-            col.set_high();
-        }
         detected.reset();
     }
 }
