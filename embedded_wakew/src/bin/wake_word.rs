@@ -24,7 +24,7 @@ bind_interrupts!(struct Irqs {
 
 include!("../../reference.rs");
 
-const DETECT_THRESHOLD: f32 = 15f32;
+const DETECT_THRESHOLD: f32 = 14f32;
 // Window must exceed the reference frame count (146) to allow timing variation.
 // 16500 samples @ 16kHz gives 176 frames.
 const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
