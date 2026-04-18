@@ -12,10 +12,10 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::{Channel, Receiver};
 use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Instant, Timer};
-use wakew_microbit::utils::{RingBuffer, WakeWordError, from_i16_pcm_to_f32, prepare_mic_saadc};
 use static_cell::StaticCell;
 use wakew::dtw::dtw;
 use wakew::mfcc::{FEATURE_SIZE, FRAME_SIZE, Mfcc, NUM_MFCC, SHIFT_WIDTH, window_to_features_into};
+use wakew_microbit::utils::{RingBuffer, WakeWordError, from_i16_pcm_to_f32, prepare_mic_saadc};
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {

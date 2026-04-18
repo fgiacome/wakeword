@@ -5,9 +5,9 @@ use embassy_executor::Spawner;
 use embassy_nrf::saadc::CallbackResult;
 use embassy_nrf::timer::Frequency;
 use embassy_nrf::{bind_interrupts, saadc};
-use wakew_microbit::utils::prepare_mic_saadc;
 use panic_probe as _;
 use rtt_target::rprint;
+use wakew_microbit::utils::prepare_mic_saadc;
 
 const SAMPLES: usize = 18000;
 
