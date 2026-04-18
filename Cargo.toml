@@ -1,6 +1,6 @@
 [workspace]
 resolver="3"
-members=["wakew", "embedded_wakew"]
+members=["wakew", "wakew_microbit"]
 
 [profile.dev]
 opt-level = 1
