@@ -20,7 +20,7 @@ pub enum WakeWordError {
 pub struct RingBuffer<const B: usize, const W: usize, const S: usize, T> {
     b: [T; B],
     next_write: usize,
-    last_read: usize,
+    next_read: usize,
     free_space: usize,
 }
 
@@ -28,12 +28,12 @@ impl<const B: usize, const W: usize, const S: usize, T: Copy> RingBuffer<B, W, S
     pub fn new(init: T) -> Self {
         let b = [init; B];
         let next_write = 0;
-        let last_read = 0;
+        let next_read = 0;
         let free_space = B;
         RingBuffer {
             b,
             next_write,
-            last_read,
+            next_read,
             free_space,
         }
     }
@@ -58,16 +58,11 @@ impl<const B: usize, const W: usize, const S: usize, T: Copy> RingBuffer<B, W, S
     /// every call. If fewer than `S` unread samples are present in the buffer,
     /// returns None.
     pub fn frame(&mut self) -> Option<[T; W]> {
-        let virtual_start = if self.next_write >= self.last_read {
-            self.next_write
-        } else {
-            self.next_write + B
-        };
-        let to_read = virtual_start - self.last_read;
-        if to_read > S {
+        let to_read = B - self.free_space;
+        if to_read >= W {
             self.free_space += S;
-            let buf = core::array::from_fn(|i| self.b[(self.last_read + i) % B]);
-            self.last_read = (self.last_read + S) % B;
+            let buf = core::array::from_fn(|i| self.b[(self.next_read + i) % B]);
+            self.next_read = (self.next_read + S) % B;
             Some(buf)
         } else {
             None
