@@ -55,7 +55,7 @@ impl<const B: usize, const W: usize, const S: usize, T: Copy> RingBuffer<B, W, S
     }
 
     /// This function returns a window of size `W` shifting `S` samples ahead at
-    /// every call. If fewer than `S` unread samples are present in the buffer,
+    /// every call. If fewer than `W` unread samples are present in the buffer,
     /// returns None.
     pub fn frame(&mut self) -> Option<[T; W]> {
         let to_read = B - self.free_space;

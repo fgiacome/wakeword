@@ -184,7 +184,7 @@ fn dct(
     })
 }
 
-/// Expand a sequence of base MFCCs into [base | delta] feature vectors, writing
+/// Expand a sequence of base MFCCs into `[base | delta]` feature vectors, writing
 /// into a caller-provided buffer to avoid a large internal allocation.
 pub async fn window_to_features_into<const N: usize>(
     base: &[[f32; NUM_MFCC]; N],
