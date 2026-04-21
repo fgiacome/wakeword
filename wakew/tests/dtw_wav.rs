@@ -2,7 +2,7 @@ use wakew::dtw::dtw;
 use wakew::mfcc::{FRAME_SIZE, Mfcc, NUM_MFCC, SAMPLE_RATE, SHIFT_WIDTH};
 
 const SIZE: usize = 24000;
-const NUM_FRAMES: usize = (SIZE - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
+const NUM_FRAMES: usize = (SIZE - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH + 1;
 
 fn load_wav(path: &str) -> [f32; SIZE] {
     let mut reader = hound::WavReader::open(path).unwrap();

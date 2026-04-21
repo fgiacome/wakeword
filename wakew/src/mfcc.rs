@@ -122,7 +122,7 @@ impl Mfcc {
         &self,
         seq: &[f32; S],
     ) -> [[f32; FEATURE_SIZE]; N] {
-        assert_eq!((S - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH, N);
+        assert_eq!((S - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH + 1, N);
         let base: [[f32; NUM_MFCC]; N] = core::array::from_fn(|i| {
             let mut frame = [0f32; FRAME_SIZE];
             let chunk = &seq[i * SHIFT_WIDTH..];

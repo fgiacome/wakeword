@@ -24,9 +24,9 @@ bind_interrupts!(struct Irqs {
 
 include!("../../reference.rs");
 
-const DETECT_THRESHOLD: f32 = 14f32;
-// 18000 samples gives 88 frames.
-const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH;
+const DETECT_THRESHOLD: f32 = 14.2f32;
+// 18000 samples gives 89 frames.
+const WINDOW_SIZE: usize = (18000 - FRAME_SIZE + SHIFT_WIDTH - 1) / SHIFT_WIDTH + 1;
 const MFCC_SHIFT: usize = 15;
 const CHANNEL_SIZE: usize = 300;
 
